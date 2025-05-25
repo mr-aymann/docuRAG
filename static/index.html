@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documentation RAG System</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <style>
+        /* Custom styles for the app */
+        body { font-family: 'Inter', sans-serif; }
+        .message.user {
+            background-color: #e0f2fe; /* Light blue for user messages */
+            align-self: flex-end;
+            border-radius: 0.75rem 0.75rem 0 0.75rem; /* Rounded corners, flat bottom-left */
+            max-width: 80%;
+            margin-left: auto; /* Push to the right */
+        }
+        .message.assistant {
+            background-color: #f0f4f8; /* Light gray for assistant messages */
+            align-self: flex-start;
+            border-radius: 0.75rem 0.75rem 0.75rem 0; /* Rounded corners, flat bottom-right */
+            max-width: 80%;
+            margin-right: auto; /* Push to the left */
+        }
+        .message {
+            padding: 0.75rem 1rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+        /* Fade-in animation for new messages */
+        .new-message {
+            opacity: 0;
+            transform: translateY(10px);
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Status indicators */
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 4px;
+        }
+        .status-indicator.status-processing { background-color: #3b82f6; } /* Blue */
+        .status-indicator.status-completed { background-color: #10b981; } /* Green */
+        .status-indicator.status-error { background-color: #ef4444; } /* Red */
+        .status-indicator.status-starting, .status-indicator.status-finding_urls, .status-indicator.status-crawling { background-color: #f59e0b; } /* Orange */
+
+        /* Site item styling */
+        .site-item {
+            background-color: #2d3748; /* Darker gray for site items */
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            transition: background-color 0.2s ease-in-out;
+            position: relative;
+        }
+        .site-item:hover {
+            background-color: #4a5568;
+        }
+        .site-item.bg-blue-50 { background-color: #bfdbfe; color: #1e3a8a; } /* Light blue for processing */
+        .site-item.bg-green-50 { background-color: #d1fae5; color: #065f46; } /* Light green for completed */
+        .site-item.bg-red-50 { background-color: #fee2e2; color: #991b1b; } /* Light red for error */
+
+        /* Scroll to bottom button */
+        .scroll-to-bottom {
+            position: fixed;
+            bottom: 6rem; /* Above chat input */
+            right: 2rem;
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: opacity 0.3s, transform 0.3s;
+            z-index: 10;
+        }
+        .scroll-to-bottom.hidden {
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(20px);
+        }
+
+        /* Sources panel styling */
+        .source-item {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out;
+        }
+        .source-item:hover {
+            background-color: #eff6ff;
+        }
+        .source-title {
+            font-weight: 600;
+            color: #1a202c;
+            margin-bottom: 0.25rem;
+        }
+        .source-url {
+            font-size: 0.75rem;
+            color: #4a5568;
+            margin-bottom: 0.5rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .source-preview {
+            font-size: 0.875rem;
+            color: #2d3748;
+            max-height: 60px; /* Limit preview height */
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Toast notification styling */
+        #toast {
+            min-width: 200px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="flex h-screen">
+        <div class="w-80 bg-gray-800 text-white flex flex-col">
+            <div class="p-4 border-b border-gray-700">
+                <h1 class="text-xl font-bold">Documentation RAG</h1>
+                <p class="text-sm text-gray-400">Chat with your documentation</p>
+            </div>
+            
+            <div class="p-4 border-b border-gray-700">
+                <h2 class="text-lg font-semibold mb-2">Add Documentation</h2>
+                <div class="flex space-x-2">
+                    <input type="text" id="siteUrl" placeholder="Enter documentation URL" 
+                            class="flex-1 bg-gray-700 text-white rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <button onclick="addSite()" 
+                            class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm flex items-center">
+                        <i class="fas fa-plus mr-1"></i> Add
+                    </button>
+                </div>
+                <div id="siteLoading" class="hidden mt-2 text-sm text-blue-400">
+                    <i class="fas fa-spinner fa-spin mr-2"></i> Processing...
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-y-auto">
+                <div class="p-4">
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-lg font-semibold">Documentation Sites</h2>
+                        <button onclick="confirmClearDatabase()" 
+                                class="text-xs text-red-400 hover:text-red-300">
+                            Clear All
+                        </button>
+                    </div>
+                    <div id="sitesList" class="space-y-2">
+                        </div>
+                </div>
+            </div>
+
+            <div class="p-4 border-t border-gray-700">
+                <button onclick="confirmClearDatabase()" 
+                        class="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded text-sm">
+                    Clear Database
+                </button>
+            </div>
+        </div>
+
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <div class="bg-white border-b border-gray-200 p-4">
+                <h2 class="text-xl font-semibold">Documentation Assistant</h2>
+                <p class="text-sm text-gray-500">Ask questions about the documentation</p>
+            </div>
+
+            <div id="chatMessages" class="flex-1 overflow-y-auto p-4 space-y-4">
+                <div class="text-center text-gray-500 mt-10">
+                    <i class="fas fa-comment-alt text-4xl mb-2"></i>
+                    <p>Ask me anything about the documentation</p>
+                </div>
+            </div>
+            
+            <div class="border-t border-gray-200 p-4 bg-white">
+                <div class="flex space-x-2">
+                    <input type="text" id="userInput" 
+                            placeholder="Ask a question about the documentation..."
+                            class="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onkeypress="if(event.key === 'Enter') sendMessage()">
+                    <button onclick="sendMessage()" 
+                            class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg flex items-center">
+                        <i class="fas fa-paper-plane mr-2"></i> Send
+                    </button>
+                </div>
+                <div id="typingIndicator" class="hidden text-sm text-gray-500 mt-2">
+                    <i class="fas fa-circle animate-pulse mr-1"></i> Assistant is typing...
+                </div>
+            </div>
+        </div>
+
+        <div id="sourcesPanel" class="w-80 bg-white border-l border-gray-200 flex flex-col hidden">
+            <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+                <h2 class="font-semibold">Sources</h2>
+                <button onclick="toggleSourcesPanel()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="sourcesList" class="flex-1 overflow-y-auto p-4">
+                </div>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-4 right-4 bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg transform translate-y-10 opacity-0 transition-all duration-300">
+        <div class="flex items-center">
+            <span id="toastMessage"></span>
+        </div>
+    </div>
+
+    <div id="confirmationModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 class="text-lg font-semibold mb-4" id="modalTitle">Confirm Action</h3>
+            <p class="text-gray-700 mb-6" id="modalMessage">Are you sure you want to perform this action?</p>
+            <div class="flex justify-end space-x-3">
+                <button onclick="closeModal()" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                    Cancel
+                </button>
+                <button id="confirmActionBtn" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                    Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markup.min.js"></script>
+    <script src="/static/script.js"></script>
+</body>
+</html>
+
