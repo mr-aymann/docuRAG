@@ -1,0 +1,14 @@
+# Ignore Chromadb
+chroma
+
+# Ignore crawled data
+crawled_data.txt
+
+# Ignore sitemap crawl status
+sitemap_crawl_status.txt
+
+# Ignore Python cache files
+__pycache__/
+
+# Ignore environment files
+.env
