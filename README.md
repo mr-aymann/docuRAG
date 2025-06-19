@@ -1,6 +1,7 @@
 # Documentation RAG System
-
 A modern web application that allows you to crawl documentation websites, index their content, and chat with the documentation using Retrieval-Augmented Generation (RAG) powered by LangChain and ChromaDB.
+
+https://github.com/user-attachments/assets/0fac891d-712b-44ba-ae7b-c02fdd63881e
 
 ## Features
 
