@@ -1,5 +1,5 @@
 # Ignore Chromadb
-chroma
+chroma/
 
 # Ignore crawled data
 crawled_data.txt
@@ -12,3 +12,8 @@ __pycache__/
 
 # Ignore environment files
 .env
+env/
+
+# Project-specific ignores
+app1.py
+sites_metadata.json

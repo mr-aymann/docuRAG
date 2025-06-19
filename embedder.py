@@ -13,8 +13,21 @@ load_dotenv()
 
 class Embedder:
     def __init__(self, embeddings_model="models/embedding-001", llm_model="gemini-1.5-flash"):
-        self.embeddings = GoogleGenerativeAIEmbeddings(model=embeddings_model)
-        self.llm = ChatGoogleGenerativeAI(model=llm_model, temperature=0.3)
+        # Get API key from environment
+        self.api_key = os.getenv("GOOGLE_API_KEY")
+        if not self.api_key:
+            raise ValueError("GOOGLE_API_KEY environment variable not set. Please add it to your .env file.")
+            
+        # Initialize embeddings and LLM with the API key
+        self.embeddings = GoogleGenerativeAIEmbeddings(
+            model=embeddings_model,
+            google_api_key=self.api_key
+        )
+        self.llm = ChatGoogleGenerativeAI(
+            model=llm_model,
+            google_api_key=self.api_key,
+            temperature=0.8
+        )
         self.splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=200)
 
     def get_vectorstore(self, persist_directory="./chroma/"):
